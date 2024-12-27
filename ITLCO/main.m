@@ -2,24 +2,27 @@
 clear all;
 close all;
 clc;
-Kmax =1998; 
-Nr = 30;
+Kmax =2000; 
+Nr = 10;
 N = 50;
 D=30;%2/10/30/50/100
 lb=-100;
 ub=100;
 Lb=lb.*ones(1,D);
 Ub=ub.*ones(1,D);
+elapsedTime = [];
+zuihuai=zeros(Kmax,1);
+% tic
 
-tic
-% for func_num=25:28
-func_num=1;
+for func_num=1:28
+%func_num=8;
  func_num
-  shift_filename='D:\À„∑®¡∑œ∞\TLCO13\input_data\shift_data.txt';
+  shift_filename='D:\ÁÆóÊ≥ïÁªÉ‰π†\TLCO13\input_data\shift_data.txt';
   O=importdata(shift_filename);
-  rotated_filename=['D:\À„∑®¡∑œ∞\TLCO13\input_data\M_D',num2str(D),'.txt'];
+  rotated_filename=['D:\ÁÆóÊ≥ïÁªÉ‰π†\TLCO13\input_data\M_D',num2str(D),'.txt'];
   M=importdata(rotated_filename);
   shuff=0;
+  tic
 for t=1:Nr   %% run the Monte-Carlo experiment
      EF=0;  
       t  
@@ -27,9 +30,12 @@ for t=1:Nr   %% run the Monte-Carlo experiment
      %initialization
      trial_worker = zeros(N,1);  % Define according to Algorithm 2
      trial_soldier = zeros(N,1);
+     flag_worker = zeros(N,1);  % Define according to Algorithm 2
+     flag_soldier = zeros(N,1);
+     CR_number=0;
     for i=1:N
-         X(i,:)=Lb+(Ub-Lb).*rand(1,D);%≥ı ºªØ÷÷»∫
-         F_x(i)=cec13(X(i,:)',D,func_num,O,M,shuff );%«Û÷÷»∫µƒ  ”¶∂» fitness(i,:)=cec13(pop(i,:)',Dim,func_num,O,M,shuff );
+         X(i,:)=Lb+(Ub-Lb).*rand(1,D);%ÂàùÂßãÂåñÁßçÁæ§
+         F_x(i)=cec13(X(i,:)',D,func_num,O,M,shuff );%Ê±ÇÁßçÁæ§ÁöÑÈÄÇÂ∫îÂ∫¶ fitness(i,:)=cec13(pop(i,:)',Dim,func_num,O,M,shuff );
          EF=EF+1;
     end
     for i=1:35
@@ -47,8 +53,10 @@ for t=1:Nr   %% run the Monte-Carlo experiment
       k=0;
       
       y1=0;
-   while EF<100000
-         k=k+1;
+%while f_gbest>10^-3
+ for k=1:Kmax
+%    while EF<100000
+%          k=k+1;
     beta=(0.5/Kmax)*k+1.5; % Equation 6
     sigma = 1/(0.1*Kmax); % Equation 17
     lamda_worker = 1- 1/(1+exp(-sigma*(k-0.5*Kmax))); % Equation 15
@@ -57,9 +65,7 @@ for t=1:Nr   %% run the Monte-Carlo experiment
         %  worker
       
         if i<=round(0.7*N)
-             X_worker(i,:)=X_worker(i,:)+(-1+rand(1)*2).*(levy_fun_TLCO(1,D,beta)+rand(1,D)).*abs(Gbest-X_worker(i,:));% Equation 12
-           
-            A=[1:i-1,i+1:N];
+           A=[1:i-1,i+1:N];
             r1 = randi(numel(A));  
             A(r1)=[];
             r2 = randi(numel(A));
@@ -67,9 +73,16 @@ for t=1:Nr   %% run the Monte-Carlo experiment
 
         [~, sortIndex1] = sort(f_worker);
         if f_worker(i)<f_worker(sortIndex1(30))
-        
-        X_worker(i,:)=X_worker(i,:)+(levy_fun_TLCO(1,D,beta)+rand(1,D)).*(Gbest-X_worker(i,:))+(rand(1,D)).*(X(r1,:)-X(r2,:));% Equation 12   
+         if  flag_worker(i) == 1  
+              flag_worker(i) = 0;
+              X_worker(i,:)=cross(k,Kmax,D,X_worker(i,:),X(i,:));
+         end
+        X_worker(i,:)=X_+++worker(i,:)+(levy_fun_TLCO(1,D,beta)+rand(1,D)).*(Gbest-X_worker(i,:))+(rand(1,D)).*(X(r1,:)-X(r2,:));% Equation 12   
         else
+          if  flag_worker(i) == 1  
+              flag_worker(i) = 0;
+              X_worker(i,:)=cross(k,Kmax,D,X_worker(i,:),X(i,:));
+         end
          X_worker(i,:)=mean(X_worker)+rand(1,D).*(Gbest-X(r1,:))+rand(1,D).*(X(r2,:)- X_worker(i,:));
         end
 
@@ -77,7 +90,6 @@ for t=1:Nr   %% run the Monte-Carlo experiment
         f_worker(i)=cec13(X_worker(i,:)',D,func_num,O,M,shuff );
         EF=EF+1;
              if f_worker(i)<F_x(i)
-                  y1=y1+1
                  X(i,:)=X_worker(i,:);
                  F_x(i)=f_worker(i);
                    if F_x(i)<f_gbest
@@ -85,18 +97,8 @@ for t=1:Nr   %% run the Monte-Carlo experiment
                        f_gbest=F_x(i);
                    end
              else
-                 
-                  CR=0.8-0.3*k/Kmax;
-                  for j=1:D
-                     if rand<CR||j==randi(D,1,1)
-                        X_worker(i,j)=X(i,j); 
-                     else
-                         X_worker(i,j)=X_worker(i,j);
-                     end
-                  end
-
-         
-                          
+                 flag_worker(i) = 1;  
+     
                  trial_worker(i)=trial_worker(i)+1;
              end
         %  reproductive
@@ -126,18 +128,19 @@ for t=1:Nr   %% run the Monte-Carlo experiment
                    end
              else
                   X_repro(i,:)=Lb+rand(1,D).*(Ub-Lb);
-                  
+                  f_repro(i)=cec13(X_repro(i,:)',D,func_num,O,M,shuff );
+                  EF=EF+1;
              end
         X_worker(i,:)= X_repro(i,:); 
-        X_worker(i,:)= boundary_condition(X_worker(i,:),Lb,Ub,D);
-        f_worker(i)=cec13(X_worker(i,:)',D,func_num,O,M,shuff );
-        EF=EF+1;
+        f_worker(i)=f_repro(i);
+  
+        zuihuai(k,1)= zuihuai(k,1)+1;
          end% End of Algorithm 3 
        end% End of the termite worker phase
  % -------------------------------------------------------------------         
 %          soldier
         if i>round(0.7*N)&&i<=round(N)
-%       X_soldier(i,:)=2*rand(1).*Gbest+(-1+rand(1)*2).*abs(X_soldier(i,:)-levy_fun_TLCO(1,D,beta).*Gbest);% Equation 14       
+%    X_soldier(i,:)=2*rand(1).*Gbest+(-1+rand(1)*2).*abs(X_soldier(i,:)-levy_fun_TLCO(1,D,beta).*Gbest);% Equation 14       
 
            [~, sortIndex] = sort(F_x);
             sortSol = X(sortIndex, :);
@@ -153,7 +156,12 @@ for t=1:Nr   %% run the Monte-Carlo experiment
                 X_g= Gbest;
              end
              b=(2-2*k/Kmax).*rand(1,D);
+             
             if rand<0.5
+                 if  flag_soldier(i) == 1  
+              flag_soldier(i) = 0;
+              X_worker(i,:)=cross(k,Kmax,D,X_soldier(i,:),X(i,:));
+                 end
                 X_soldier(i,:)=X_g+b.*(X_soldier(i,:)-Gbest);
             else
                  X_soldier(i,:)=X_g+b.*(X(r1,:)-X(r2,:)) ;
@@ -174,14 +182,7 @@ for t=1:Nr   %% run the Monte-Carlo experiment
              else
 
 
-                  CR=0.8-0.3*k/Kmax;
-                  for j=1:D
-                     if rand<CR||j==randi(D,1,1)
-                        X_soldier(i,j)=X(i,j); 
-                     else
-                         X_soldier(i,j)=X_soldier(i,j);
-                     end
-                  end
+                 flag_soldier(i) = 1;
                  trial_soldier(i)=trial_soldier(i)+1;
              end
         %  reproductive
@@ -211,26 +212,32 @@ for t=1:Nr   %% run the Monte-Carlo experiment
                    end
              else
                   X_repro(i,:)=Lb+rand(1,D).*(Ub-Lb); 
+                  f_repro(i)=cec13(X_repro(i,:)',D,func_num,O,M,shuff );
+                  EF=EF+1;
              end
-         X_soldier(i,:)= X_repro(i,:);    
+        X_soldier(i,:)= X_repro(i,:);    
+        f_soldier(i)=f_repro(i);
+       
+           zuihuai(k,1)= zuihuai(k,1)+1;
          end% End of Algorithm 3
         end% End of termite soldier phase
-    end%End÷÷»∫
+    end%End pop
       best_TLCO(k,:)=f_gbest;
-%       every_bestf8(func_num,k)=f_gbest;
+%        every_bestf1(func_num,k)=f_gbest;
+ every_bestf1(t,k)=f_gbest;
       best_X(k,:)=Gbest;
 
       
-  end%Endµ¸¥˙
+  end%End 
     [c,d]=min(best_TLCO);
 %     best(1,t)=c;
      best(func_num,t)=c;
 %     G(t,:)=best_X(d,:); 
-   
+   number(t,:)=CR_number;
     EF
        
 end%End Run    
-toc
+ toc
 %   AVE=mean(best);
 %   Abest(1,1)=AVE;
 %   bestone=min(best);
@@ -242,4 +249,16 @@ toc
   bestone(func_num,1)=min(best(func_num,:));
   Abest(func_num,2)=bestone(func_num,1);
   Abest(func_num,3:Nr+2)=best(func_num,:);
-%                          end
+  newnumber(func_num,1:Nr)=number;
+elapsedTime(func_num,:) = toc;
+end
+function X_new=cross(k,Kmax,D,X_worker,X)
+      CR=0.8-0.3*k/Kmax;
+                  for j=1:D
+                     if rand<CR||j==randi(D,1,1)
+                        X_new(1,j)=X(1,j); 
+                     else
+                         X_new(1,j)=X_worker(1,j);
+                     end
+                  end
+end
